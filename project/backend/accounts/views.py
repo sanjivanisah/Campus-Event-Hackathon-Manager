@@ -1,0 +1,101 @@
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.throttling import UserRateThrottle
+from rest_framework_simplejwt.tokens import RefreshToken
+from google.auth.transport import requests
+from google.oauth2 import id_token
+import os
+from .serializers import RegisterSerializer, UserSerializer, GoogleAuthSerializer
+from .models import User
+
+
+class RegistrationRateThrottle(UserRateThrottle):
+    scope = 'registration'
+
+
+@api_view(['POST'])
+@throttle_classes([RegistrationRateThrottle])
+def register(request):
+    serializer = RegisterSerializer(data=request.data)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def me(request):
+    return Response(UserSerializer(request.user).data)
+
+
+@api_view(['POST'])
+@throttle_classes([RegistrationRateThrottle])
+def google_auth(request):
+    """
+    Handle Google OAuth authentication.
+    Expects a POST request with a 'token' field containing the Google ID token.
+    """
+    serializer = GoogleAuthSerializer(data=request.data)
+    
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    token = serializer.validated_data['token']
+    google_client_id = os.getenv('GOOGLE_CLIENT_ID')
+    
+    if not google_client_id:
+        return Response(
+            {'error': 'Google authentication not configured'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+    try:
+        # Verify the token with Google
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            requests.Request(),
+            google_client_id
+        )
+        
+        # Extract user information
+        google_id = idinfo['sub']
+        email = idinfo['email']
+        first_name = idinfo.get('given_name', '')
+        last_name = idinfo.get('family_name', '')
+        
+        # Get or create user
+        user, created = User.objects.get_or_create(
+            google_id=google_id,
+            defaults={
+                'email': email,
+                'first_name': first_name,
+                'last_name': last_name,
+                'username': email.split('@')[0],
+            }
+        )
+        
+        # If user exists but email doesn't match, update it
+        if not created and user.email != email:
+            user.email = email
+            user.save()
+        
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data
+        }, status=status.HTTP_200_OK)
+        
+    except ValueError:
+        # Token is invalid
+        return Response(
+            {'error': 'Invalid token'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
