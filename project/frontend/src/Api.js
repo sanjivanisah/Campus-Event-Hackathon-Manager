@@ -5,9 +5,21 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  const publicEndpoints = [
+    'token/',
+    'token/refresh/',
+    'accounts/register/',
+    'accounts/google-auth/'
+  ];
+  const requestUrl = config.url || '';
+  const isPublicEndpoint = publicEndpoints.some((endpoint) =>
+    requestUrl.endsWith(endpoint)
+  );
   const token = localStorage.getItem('token');
 
-  if (token) {
+  if (isPublicEndpoint) {
+    delete config.headers.Authorization;
+  } else if (token && token !== '[object Object]') {
     config.headers.Authorization = `Bearer ${token}`;
   }
 

@@ -15,6 +15,18 @@ class RegistrationRateThrottle(UserRateThrottle):
     scope = 'registration'
 
 
+def unique_username_from_email(email):
+    base_username = email.split('@')[0]
+    username = base_username
+    suffix = 1
+
+    while User.objects.filter(username=username).exists():
+        username = f'{base_username}{suffix}'
+        suffix += 1
+
+    return username
+
+
 @api_view(['POST'])
 @throttle_classes([RegistrationRateThrottle])
 def register(request):
@@ -46,6 +58,8 @@ def google_auth(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     token = serializer.validated_data['token']
+    role = serializer.validated_data.get('role', 'PARTICIPANT')
+    college = serializer.validated_data.get('college', '')
     google_client_id = os.getenv('GOOGLE_CLIENT_ID')
     
     if not google_client_id:
@@ -68,20 +82,32 @@ def google_auth(request):
         first_name = idinfo.get('given_name', '')
         last_name = idinfo.get('family_name', '')
         
-        # Get or create user
-        user, created = User.objects.get_or_create(
-            google_id=google_id,
-            defaults={
-                'email': email,
-                'first_name': first_name,
-                'last_name': last_name,
-                'username': email.split('@')[0],
-            }
-        )
-        
-        # If user exists but email doesn't match, update it
-        if not created and user.email != email:
+        user = User.objects.filter(google_id=google_id).first()
+
+        if user is None:
+            user = User.objects.filter(email=email).first()
+
+        if user is None:
+            user = User.objects.create_user(
+                username=unique_username_from_email(email),
+                email=email,
+                password=None,
+                role=role,
+                college=college,
+                first_name=first_name,
+                last_name=last_name,
+                google_id=google_id,
+            )
+        else:
             user.email = email
+            user.first_name = first_name
+            user.last_name = last_name
+            user.google_id = google_id
+            user.role = role
+
+            if college:
+                user.college = college
+
             user.save()
         
         # Generate JWT tokens

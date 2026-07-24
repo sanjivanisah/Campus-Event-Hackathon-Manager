@@ -78,6 +78,20 @@ button.secondary {
   max-width: 520px;
 }
 
+.auth-divider {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.auth-divider label {
+  max-width: 260px;
+  text-align: left;
+  width: 100%;
+}
+
 .topbar {
   align-items: center;
   background: #ffffff;

@@ -31,6 +31,15 @@ class UserSerializer(serializers.ModelSerializer):
 class GoogleAuthSerializer(serializers.Serializer):
     """Serializer for Google OAuth token verification"""
     token = serializers.CharField()
+    role = serializers.ChoiceField(
+        choices=User.ROLE_CHOICES,
+        default='PARTICIPANT',
+        required=False,
+    )
+    college = serializers.CharField(
+        allow_blank=True,
+        required=False,
+    )
 
     def validate_token(self, value):
         if not value:

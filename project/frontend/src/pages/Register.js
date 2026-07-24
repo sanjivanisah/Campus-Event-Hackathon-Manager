@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import api from '../Api';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 
 function Register() {
   const navigate = useNavigate();
@@ -32,6 +33,33 @@ function Register() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await api.post('accounts/google-auth/', {
+        token: credentialResponse.credential,
+        role: form.role,
+        college: form.college
+      });
+
+      localStorage.setItem('token', res.data.access);
+      localStorage.setItem('refreshToken', res.data.refresh);
+
+      navigate('/dashboard');
+    } catch (err) {
+      setError('Google registration failed. Please try again.');
+      console.error('Google registration error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google registration failed. Please try again.');
   };
 
   return (
@@ -103,6 +131,14 @@ function Register() {
             {loading ? 'Creating...' : 'Register'}
           </button>
         </form>
+
+        <div className="auth-divider">
+          <p className="muted">Or create account with Google:</p>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+          />
+        </div>
 
         <p className="muted">
           Already registered? <Link to="/">Login</Link>

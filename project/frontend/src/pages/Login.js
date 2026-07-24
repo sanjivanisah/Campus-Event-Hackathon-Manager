@@ -10,6 +10,7 @@ function Login() {
     username: '',
     password: ''
   });
+  const [googleRole, setGoogleRole] = useState('PARTICIPANT');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -38,7 +39,8 @@ function Login() {
 
     try {
       const res = await api.post('accounts/google-auth/', {
-        token: credentialResponse.credential
+        token: credentialResponse.credential,
+        role: googleRole
       });
 
       localStorage.setItem('token', res.data.access);
@@ -93,8 +95,19 @@ function Login() {
           </button>
         </form>
 
-        <div style={{ margin: '20px 0', textAlign: 'center' }}>
+        <div className="auth-divider">
           <p className="muted">Or continue with:</p>
+          <label>
+            Google role
+            <select
+              value={googleRole}
+              onChange={(e) => setGoogleRole(e.target.value)}
+            >
+              <option value="PARTICIPANT">Participant</option>
+              <option value="ORGANIZER">Organizer</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </label>
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
