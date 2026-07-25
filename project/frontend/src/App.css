@@ -346,9 +346,14 @@ textarea {
 }
 
 .event-list,
+.team-card-grid,
 .timeline-list {
   display: grid;
   gap: 14px;
+}
+
+.team-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .event-card,

@@ -284,13 +284,13 @@ function Events() {
         )}
 
         {user?.role === 'PARTICIPANT' && teams.length > 0 && (
-          <section className="panel">
+          <section className="panel full-span">
             <div className="section-title">
               <h2>My Teams</h2>
               <span>{teams.length} total</span>
             </div>
 
-            <div className="event-list">
+            <div className="team-card-grid">
               {teams.map((team) => (
                 <article className="event-card" key={team.id}>
                   <div className="card-heading">
