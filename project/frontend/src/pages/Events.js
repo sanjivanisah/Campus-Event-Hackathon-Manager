@@ -6,7 +6,9 @@ function Events() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [events, setEvents] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [teamForm, setTeamForm] = useState({});
+  const [joinLink, setJoinLink] = useState('');
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -15,6 +17,7 @@ function Events() {
     max_team_size: 4
   });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,6 +29,7 @@ function Events() {
       const meRes = await api.get('accounts/me/');
       setUser(meRes.data);
       fetchEvents();
+      fetchTeams(meRes.data);
     } catch (err) {
       navigate('/');
     }
@@ -49,9 +53,74 @@ function Events() {
     }
   };
 
+  const fetchTeams = async (currentUser = user) => {
+    if (currentUser?.role !== 'PARTICIPANT') {
+      return;
+    }
+
+    try {
+      const res = await api.get('teams/');
+      setTeams(res.data);
+    } catch (err) {
+      setError('Could not load your teams.');
+    }
+  };
+
+  const getJoinLink = (teamId) => {
+    return `${window.location.origin}/join-team/${teamId}`;
+  };
+
+  const copyJoinLink = async (teamId) => {
+    const link = getJoinLink(teamId);
+
+    try {
+      await navigator.clipboard.writeText(link);
+      setSuccess('Team join link copied.');
+    } catch (err) {
+      setSuccess(`Copy this team join link: ${link}`);
+    }
+  };
+
+  const getTeamIdFromJoinLink = (value) => {
+    const trimmedValue = value.trim();
+
+    if (/^\d+$/.test(trimmedValue)) {
+      return trimmedValue;
+    }
+
+    const match = trimmedValue.match(/\/join-team\/(\d+)\/?$/);
+
+    return match ? match[1] : null;
+  };
+
+  const joinTeamFromLink = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    const teamId = getTeamIdFromJoinLink(joinLink);
+
+    if (!teamId) {
+      setError('Please paste a valid team join link.');
+      return;
+    }
+
+    try {
+      await api.post(`teams/${teamId}/join/`);
+      setJoinLink('');
+      setSuccess('You joined the team successfully.');
+      fetchEvents();
+      fetchTeams();
+    } catch (err) {
+      const data = err.response?.data;
+      setError(data?.error || 'Could not join this team.');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
 
     try {
       await api.post('events/', form);
@@ -62,22 +131,44 @@ function Events() {
         submission_deadline: '',
         max_team_size: 4
       });
+      setSuccess(
+        user?.role === 'ADMIN'
+          ? 'Event created and approved.'
+          : 'Event submitted. It will be visible to participants after admin approval.'
+      );
       fetchEvents();
     } catch (err) {
       setError('Could not create event. Please check every field.');
     }
   };
 
-  const createTeam = async (eventId) => {
+  const approveEvent = async (eventId) => {
     setError('');
+    setSuccess('');
 
     try {
-      await api.post('teams/create/', {
+      await api.post(`events/${eventId}/approve/`);
+      setSuccess('Event approved successfully.');
+      fetchEvents();
+    } catch (err) {
+      setError('Could not approve event.');
+    }
+  };
+
+  const createTeam = async (eventId) => {
+    setError('');
+    setSuccess('');
+
+    try {
+      const res = await api.post('teams/create/', {
         event: eventId,
         name: teamForm[eventId] || ''
       });
+      const link = getJoinLink(res.data.id);
       setTeamForm({ ...teamForm, [eventId]: '' });
+      setSuccess(`Team created. Share this join link: ${link}`);
       fetchEvents();
+      fetchTeams();
     } catch (err) {
       const data = err.response?.data;
       setError(data?.error || 'Could not create team for this event.');
@@ -173,6 +264,58 @@ function Events() {
           </form>
         )}
 
+        {user?.role === 'PARTICIPANT' && (
+          <form className="panel full-span" onSubmit={joinTeamFromLink}>
+            <div className="section-title">
+              <h2>Join Team by Link</h2>
+            </div>
+            <p className="muted">
+              Paste the invite link shared by your teammate to join their team.
+            </p>
+            <div className="inline-form">
+              <input
+                placeholder="Paste link, e.g. http://localhost:3000/join-team/5"
+                value={joinLink}
+                onChange={(e) => setJoinLink(e.target.value)}
+              />
+              <button>Join Team</button>
+            </div>
+          </form>
+        )}
+
+        {user?.role === 'PARTICIPANT' && teams.length > 0 && (
+          <section className="panel">
+            <div className="section-title">
+              <h2>My Teams</h2>
+              <span>{teams.length} total</span>
+            </div>
+
+            <div className="event-list">
+              {teams.map((team) => (
+                <article className="event-card" key={team.id}>
+                  <div className="card-heading">
+                    <h3>{team.name}</h3>
+                    <span className="status open">
+                      {team.member_count} members
+                    </span>
+                  </div>
+                  <p>{team.event_title}</p>
+                  <label>
+                    Join Link
+                    <input readOnly value={getJoinLink(team.id)} />
+                  </label>
+                  <div className="button-row">
+                    <button onClick={() => copyJoinLink(team.id)}>
+                      Copy Join Link
+                    </button>
+                    <Link to={`/join-team/${team.id}`}>Open Link</Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className={user?.role === 'PARTICIPANT' ? 'panel full-span' : 'panel'}>
           <div className="section-title">
             <h2>Available Events</h2>
@@ -180,6 +323,7 @@ function Events() {
           </div>
           {loading && <p className="muted">Loading events...</p>}
           {error && <p className="error">{error}</p>}
+          {success && <p className="success">{success}</p>}
 
           {!loading && !error && events.length === 0 && (
             <p className="muted">No events yet. Create the first one.</p>
@@ -190,12 +334,28 @@ function Events() {
               <article className="event-card" key={event.id}>
                 <div className="card-heading">
                   <h3>{event.title}</h3>
-                  <span className={event.registration_open ? 'status open' : 'status closed'}>
-                    {event.registration_open ? 'Open' : 'Closed'}
+                  <span
+                    className={
+                      event.approval_status === 'APPROVED'
+                        ? event.registration_open
+                          ? 'status open'
+                          : 'status closed'
+                        : 'status pending'
+                    }
+                  >
+                    {event.approval_status === 'APPROVED'
+                      ? event.registration_open
+                        ? 'Open'
+                        : 'Closed'
+                      : 'Pending approval'}
                   </span>
                 </div>
                 <p>{event.description}</p>
                 <dl>
+                  <div>
+                    <dt>Approval</dt>
+                    <dd>{event.approval_status}</dd>
+                  </div>
                   <div>
                     <dt>Organizer</dt>
                     <dd>{event.organizer_name || 'Unknown'}</dd>
@@ -214,7 +374,15 @@ function Events() {
                   </div>
                 </dl>
 
-                {user?.role === 'PARTICIPANT' && event.registration_open && (
+                {user?.role === 'ADMIN' && event.approval_status === 'PENDING' && (
+                  <button onClick={() => approveEvent(event.id)}>
+                    Approve Event
+                  </button>
+                )}
+
+                {user?.role === 'PARTICIPANT'
+                  && event.approval_status === 'APPROVED'
+                  && event.registration_open && (
                   <div className="inline-form">
                     <input
                       placeholder="Team name"

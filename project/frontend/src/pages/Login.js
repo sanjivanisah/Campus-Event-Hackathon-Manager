@@ -117,7 +117,10 @@ function Login() {
         </div>
 
         <p className="muted">
-          New here? <Link to="/register">Create an account</Link>
+          New here?{' '}
+          <Link to="/register" state={{ from: { pathname: redirectTo } }}>
+            Create an account
+          </Link>
         </p>
       </section>
     </main>

@@ -41,6 +41,12 @@ def create_team(request):
             status=status.HTTP_404_NOT_FOUND,
         )
 
+    if event.approval_status != Event.APPROVAL_APPROVED:
+        return Response(
+            {'error': 'This event is waiting for admin approval'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     if timezone.now() > event.registration_deadline:
         return Response(
             {'error': 'Registration deadline has passed'},
@@ -88,6 +94,12 @@ def join_team(request, team_id):
         team = Team.objects.select_related('event').get(id=team_id)
     except Team.DoesNotExist:
         return Response({'error': 'Team not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if team.event.approval_status != Event.APPROVAL_APPROVED:
+        return Response(
+            {'error': 'This event is waiting for admin approval'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     if timezone.now() > team.event.registration_deadline:
         return Response(

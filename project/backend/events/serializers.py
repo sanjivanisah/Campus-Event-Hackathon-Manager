@@ -24,12 +24,20 @@ class EventSerializer(serializers.ModelSerializer):
             'registration_deadline',
             'submission_deadline',
             'max_team_size',
+            'approval_status',
+            'approved_by',
+            'approved_at',
             'team_count',
             'submission_count',
             'registration_open',
             'submission_open',
         ]
-        read_only_fields = ['organizer']
+        read_only_fields = [
+            'organizer',
+            'approval_status',
+            'approved_by',
+            'approved_at',
+        ]
 
     def get_team_count(self, obj):
         return obj.team_set.count()

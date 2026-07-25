@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import api from '../Api';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 
 function Register() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = location.state?.from?.pathname || '/dashboard';
 
   const [form, setForm] = useState({
     username: '',
@@ -23,7 +25,10 @@ function Register() {
 
     try {
       await api.post('accounts/register/', form);
-      navigate('/');
+      navigate('/', {
+        replace: true,
+        state: { from: { pathname: redirectTo } }
+      });
     } catch (err) {
       const data = err.response?.data;
       const message = data
@@ -49,7 +54,7 @@ function Register() {
       localStorage.setItem('token', res.data.access);
       localStorage.setItem('refreshToken', res.data.refresh);
 
-      navigate('/dashboard');
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       setError('Google registration failed. Please try again.');
       console.error('Google registration error:', err);
@@ -141,7 +146,10 @@ function Register() {
         </div>
 
         <p className="muted">
-          Already registered? <Link to="/">Login</Link>
+          Already registered?{' '}
+          <Link to="/" state={{ from: { pathname: redirectTo } }}>
+            Login
+          </Link>
         </p>
       </section>
     </main>

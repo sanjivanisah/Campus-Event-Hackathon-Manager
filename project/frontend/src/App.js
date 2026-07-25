@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Events from './pages/Events';
+import JoinTeam from './pages/JoinTeam';
 import Submissions from './pages/Submissions';
 import './App.css';
 
@@ -73,6 +74,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Events />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/join-team/:teamId"
+            element={
+              <ProtectedRoute>
+                <JoinTeam />
               </ProtectedRoute>
             }
           />
