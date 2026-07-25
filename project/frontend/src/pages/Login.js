@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import api from '../Api';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = location.state?.from?.pathname || '/dashboard';
 
   const [form, setForm] = useState({
     username: '',
@@ -25,7 +27,7 @@ function Login() {
       localStorage.setItem('token', res.data.access);
       localStorage.setItem('refreshToken', res.data.refresh);
 
-      navigate('/dashboard');
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       setError('Invalid username or password.');
     } finally {
@@ -46,7 +48,7 @@ function Login() {
       localStorage.setItem('token', res.data.access);
       localStorage.setItem('refreshToken', res.data.refresh);
 
-      navigate('/dashboard');
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       setError('Google authentication failed. Please try again.');
       console.error('Google auth error:', err);
